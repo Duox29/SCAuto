@@ -25,11 +25,11 @@ public abstract class FishingMinigameScreenMixin {
     @Shadow public int currentRotation;
     @Shadow public float partial;
     @Shadow public float hitDelay;
-
-    // We no longer shadow gracePeriod because we want to ignore it and strike immediately
     @Shadow public float progress;
     @Shadow public int hp;
     @Shadow public int treasureProgress;
+    @Shadow public boolean treasureActive;
+    @Shadow public int gracePeriod;
 
     @Shadow public abstract void inputPressed();
 
@@ -37,25 +37,21 @@ public abstract class FishingMinigameScreenMixin {
     @Unique private final Map<ActiveSweetSpot, Integer> autoHitCooldown = new HashMap<>();
     @Unique private static final int AUTO_HIT_COOLDOWN_TICKS = 5;
 
-    // Prevents log spam by only logging when a treasure newly appears
-    @Unique private boolean hasLoggedTreasure = false;
-
     @Inject(method = "tick", at = @At("TAIL"))
     private void onTick(CallbackInfo ci) {
         autoTickCounter++;
 
-        // 1. LINK TO YOUR CUSTOM STATE MANAGER
-        boolean isAutoPlayEnabled = SCAutoClient.getState() != SCAutoClient.AutoState.OFF;
-        boolean isTreasureEnabled = SCAutoClient.getState() == SCAutoClient.AutoState.ON_WITH_TREASURE;
+        SCAutoClient.AutoState state = SCAutoClient.getState();
+        boolean isAutoPlayEnabled = state != SCAutoClient.AutoState.OFF;
+        boolean isTreasureEnabled = state == SCAutoClient.AutoState.ON_WITH_TREASURE_NO_BAD || state == SCAutoClient.AutoState.ON_WITH_TREASURE_WITH_BAD;
+        boolean isBadSpotEnabled = state == SCAutoClient.AutoState.ON_NO_TREASURE_WITH_BAD || state == SCAutoClient.AutoState.ON_WITH_TREASURE_WITH_BAD;
 
-        // If AutoPlay is off, do absolutely nothing.
         if (!isAutoPlayEnabled) return;
 
         float pointerAngle = getPointerPosPrecise();
-        float threshold = 0.70f;
+        float threshold = SCAutoClient.getThreshold();
         float currentRatio = this.hp > 0 ? (this.progress / (float) this.hp) : 0;
 
-        // 2. CHECK IF TREASURE IS ACTIVELY ON SCREEN
         boolean hasTreasureOnScreen = false;
         for (ActiveSweetSpot spot : activeSweetSpots) {
             if (spot.texture != null && spot.texture.getPath().contains("treasure")) {
@@ -64,15 +60,6 @@ public abstract class FishingMinigameScreenMixin {
             }
         }
 
-        // 3. CONSOLE LOGGING FOR DEBUGGING
-        if (hasTreasureOnScreen && !hasLoggedTreasure) {
-            System.out.println("[SCAuto] Treasure detected on screen!");
-            hasLoggedTreasure = true;
-        } else if (!hasTreasureOnScreen) {
-            hasLoggedTreasure = false;
-        }
-
-        // Decide if we need to stall normal hits for the treasure
         boolean prioritizeTreasure = isTreasureEnabled && hasTreasureOnScreen && (this.treasureProgress < 100) && (currentRatio > threshold);
 
         ActiveSweetSpot targetSpot = null;
@@ -84,8 +71,7 @@ public abstract class FishingMinigameScreenMixin {
             boolean isTreasure = texPath.contains("treasure");
             boolean isBadSpot = texPath.contains("tnt") || texPath.contains("wither") || texPath.contains("creeper");
 
-            // Ignore Traps
-            if (isBadSpot) continue;
+            if (isBadSpot && !isBadSpotEnabled) continue;
 
             if (isOverlapping(pointerAngle, spot)) {
                 if (!isTreasureEnabled) {
@@ -109,28 +95,15 @@ public abstract class FishingMinigameScreenMixin {
             }
         }
 
-        // 4. EXECUTE HIT
         if (targetSpot != null) {
             int lastHitTick = autoHitCooldown.getOrDefault(targetSpot, -1000);
             if (autoTickCounter - lastHitTick >= AUTO_HIT_COOLDOWN_TICKS) {
-                if (targetSpot.texture != null && targetSpot.texture.getPath().contains("treasure")) {
-                    System.out.println("[SCAuto] Striking Treasure Spot!");
-                    sendFeedback("§6[SCAuto] Hit Treasure!");
-                }
-
                 this.inputPressed();
                 autoHitCooldown.put(targetSpot, autoTickCounter);
             }
         }
 
         autoHitCooldown.keySet().removeIf(spot -> !activeSweetSpots.contains(spot));
-    }
-
-    @Unique
-    private void sendFeedback(String message) {
-        if (Minecraft.getInstance().player != null) {
-            Minecraft.getInstance().player.displayClientMessage(Component.literal(message), true);
-        }
     }
 
     @Unique
