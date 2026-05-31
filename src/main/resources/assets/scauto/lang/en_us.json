@@ -1,0 +1,13 @@
+{
+  "itemGroup.scauto": "Example Mod Tab",
+  "block.scauto.example_block": "Example Block",
+  "item.scauto.example_item": "Example Item",
+
+  "scauto.configuration.title": "SCAuto Configs",
+  "scauto.configuration.section.scauto.common.toml": "SCAuto Configs",
+  "scauto.configuration.section.scauto.common.toml.title": "SCAuto Configs",
+  "scauto.configuration.items": "Item List",
+  "scauto.configuration.logDirtBlock": "Log Dirt Block",
+  "scauto.configuration.magicNumberIntroduction": "Magic Number Text",
+  "scauto.configuration.magicNumber": "Magic Number"
+}

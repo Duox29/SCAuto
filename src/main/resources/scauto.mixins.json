@@ -1,0 +1,14 @@
+{
+  "required": true,
+  "package": "com.duox.scauto.mixins",
+  "compatibilityLevel": "JAVA_21",
+  "mixins": [
+    "FishingMinigameScreenMixin"
+  ],
+  "injectors": {
+    "defaultRequire": 1
+  },
+  "overwrites": {
+    "requireAnnotations": true
+  }
+}
