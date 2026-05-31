@@ -1,7 +1,10 @@
 package com.duox.scauto.mixins;
 
+import com.duox.scauto.SCAutoClient;
 import com.wdiscute.starcatcher.minigame.ActiveSweetSpot;
 import com.wdiscute.starcatcher.minigame.FishingMinigameScreen;
+import net.minecraft.client.Minecraft;
+import net.minecraft.network.chat.Component;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.Shadow;
 import org.spongepowered.asm.mixin.Unique;
@@ -13,72 +16,127 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
-@Mixin(FishingMinigameScreen.class)
+@Mixin(value = FishingMinigameScreen.class, remap = false)
 public abstract class FishingMinigameScreenMixin {
 
-    @Shadow(remap = false)
-    private List<ActiveSweetSpot> activeSweetSpots;
+    @Shadow protected List<ActiveSweetSpot> activeSweetSpots;
+    @Shadow public float pointerPos;
+    @Shadow public float pointerSpeed;
+    @Shadow public int currentRotation;
+    @Shadow public float partial;
+    @Shadow public float hitDelay;
 
-    @Shadow(remap = false)
-    private float pointerPos;
+    // We no longer shadow gracePeriod because we want to ignore it and strike immediately
+    @Shadow public float progress;
+    @Shadow public int hp;
+    @Shadow public int treasureProgress;
 
-    @Shadow(remap = false)
-    private float pointerSpeed;
+    @Shadow public abstract void inputPressed();
 
-    @Shadow(remap = false)
-    private int currentRotation;
+    @Unique private int autoTickCounter = 0;
+    @Unique private final Map<ActiveSweetSpot, Integer> autoHitCooldown = new HashMap<>();
+    @Unique private static final int AUTO_HIT_COOLDOWN_TICKS = 5;
 
-    @Shadow(remap = false)
-    private float partial;
+    // Prevents log spam by only logging when a treasure newly appears
+    @Unique private boolean hasLoggedTreasure = false;
 
-    @Shadow(remap = false)
-    private float hitDelay;
-
-    @Shadow(remap = false)
-    private int gracePeriod;
-
-    // Cooldown tracking: for each sweet spot, last tick when auto-hit was triggered
-    @Unique
-    private final Map<ActiveSweetSpot, Integer> autoHitCooldown = new HashMap<>();
-
-    @Unique
-    private static final int AUTO_HIT_COOLDOWN_TICKS = 5; // prevent hitting the same spot too fast
-
-    /**
-     * Injects at the end of tick() to check for pointer-sweetspot overlap and auto-hit.
-     */
-    @Inject(method = "tick", at = @At("TAIL"), remap = false)
+    @Inject(method = "tick", at = @At("TAIL"))
     private void onTick(CallbackInfo ci) {
-        FishingMinigameScreen screen = (FishingMinigameScreen) (Object) this;
+        autoTickCounter++;
 
-        // Don't auto-hit during grace period
-        if (screen.gracePeriod > 0) return;
+        // 1. LINK TO YOUR CUSTOM STATE MANAGER
+        boolean isAutoPlayEnabled = SCAutoClient.getState() != SCAutoClient.AutoState.OFF;
+        boolean isTreasureEnabled = SCAutoClient.getState() == SCAutoClient.AutoState.ON_WITH_TREASURE;
 
-        // Get precise pointer angle including hit delay
-        float pointerAngle = getPointerPosPrecise(screen);
+        // If AutoPlay is off, do absolutely nothing.
+        if (!isAutoPlayEnabled) return;
 
-        // Check all sweet spots
+        float pointerAngle = getPointerPosPrecise();
+        float threshold = 0.70f;
+        float currentRatio = this.hp > 0 ? (this.progress / (float) this.hp) : 0;
+
+        // 2. CHECK IF TREASURE IS ACTIVELY ON SCREEN
+        boolean hasTreasureOnScreen = false;
         for (ActiveSweetSpot spot : activeSweetSpots) {
+            if (spot.texture != null && spot.texture.getPath().contains("treasure")) {
+                hasTreasureOnScreen = true;
+                break;
+            }
+        }
+
+        // 3. CONSOLE LOGGING FOR DEBUGGING
+        if (hasTreasureOnScreen && !hasLoggedTreasure) {
+            System.out.println("[SCAuto] Treasure detected on screen!");
+            hasLoggedTreasure = true;
+        } else if (!hasTreasureOnScreen) {
+            hasLoggedTreasure = false;
+        }
+
+        // Decide if we need to stall normal hits for the treasure
+        boolean prioritizeTreasure = isTreasureEnabled && hasTreasureOnScreen && (this.treasureProgress < 100) && (currentRatio > threshold);
+
+        ActiveSweetSpot targetSpot = null;
+
+        for (ActiveSweetSpot spot : activeSweetSpots) {
+            if (spot.texture == null) continue;
+
+            String texPath = spot.texture.getPath();
+            boolean isTreasure = texPath.contains("treasure");
+            boolean isBadSpot = texPath.contains("tnt") || texPath.contains("wither") || texPath.contains("creeper");
+
+            // Ignore Traps
+            if (isBadSpot) continue;
+
             if (isOverlapping(pointerAngle, spot)) {
-                // Cooldown check: only hit if enough ticks passed since last auto-hit on this spot
-                int lastHitTick = autoHitCooldown.getOrDefault(spot, -1000);
-                if (screen.tickCount - lastHitTick >= AUTO_HIT_COOLDOWN_TICKS) {
-                    // Trigger the hit
-                    screen.inputPressed();
-                    autoHitCooldown.put(spot, screen.tickCount);
-                    break; // only one hit per tick
+                if (!isTreasureEnabled) {
+                    if (!isTreasure) {
+                        targetSpot = spot;
+                        break;
+                    }
+                } else {
+                    if (isTreasure) {
+                        if (this.treasureProgress < 100) {
+                            targetSpot = spot;
+                            break;
+                        }
+                    } else {
+                        if (!prioritizeTreasure) {
+                            targetSpot = spot;
+                            break;
+                        }
+                    }
                 }
             }
         }
 
-        // Clean up cooldown map for spots that are no longer active (optional)
+        // 4. EXECUTE HIT
+        if (targetSpot != null) {
+            int lastHitTick = autoHitCooldown.getOrDefault(targetSpot, -1000);
+            if (autoTickCounter - lastHitTick >= AUTO_HIT_COOLDOWN_TICKS) {
+                if (targetSpot.texture != null && targetSpot.texture.getPath().contains("treasure")) {
+                    System.out.println("[SCAuto] Striking Treasure Spot!");
+                    sendFeedback("§6[SCAuto] Hit Treasure!");
+                }
+
+                this.inputPressed();
+                autoHitCooldown.put(targetSpot, autoTickCounter);
+            }
+        }
+
         autoHitCooldown.keySet().removeIf(spot -> !activeSweetSpots.contains(spot));
     }
 
     @Unique
-    private float getPointerPosPrecise(FishingMinigameScreen screen) {
-        float precise = screen.pointerPos + (screen.pointerSpeed * screen.partial) * screen.currentRotation;
-        precise += screen.hitDelay * screen.pointerSpeed * screen.currentRotation;
+    private void sendFeedback(String message) {
+        if (Minecraft.getInstance().player != null) {
+            Minecraft.getInstance().player.displayClientMessage(Component.literal(message), true);
+        }
+    }
+
+    @Unique
+    private float getPointerPosPrecise() {
+        float precise = this.pointerPos + (this.pointerSpeed * this.partial) * this.currentRotation;
+        precise += this.hitDelay * this.pointerSpeed * this.currentRotation;
         return precise;
     }
 
