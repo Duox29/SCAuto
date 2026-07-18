@@ -40,14 +40,14 @@ public class SCAutoClient {
         boolean upPressed = KeyBindings.thresholdUpKey.isDown();
         if (upPressed && !lastUpState) {
             threshold = Math.min(0.95f, threshold + 0.05f);
-            mc.player.displayClientMessage(Component.literal("§e[SCAuto] Threshold: §a" + (int)(threshold * 100) + "%"), true);
+            mc.player.sendSystemMessage(Component.literal("§e[SCAuto] Threshold: §a" + (int)(threshold * 100) + "%"));
         }
         lastUpState = upPressed;
 
         boolean downPressed = KeyBindings.thresholdDownKey.isDown();
         if (downPressed && !lastDownState) {
             threshold = Math.max(0.10f, threshold - 0.05f);
-            mc.player.displayClientMessage(Component.literal("§e[SCAuto] Threshold: §c" + (int)(threshold * 100) + "%"), true);
+            mc.player.sendSystemMessage(Component.literal("§e[SCAuto] Threshold: §c" + (int)(threshold * 100) + "%"));
         }
         lastDownState = downPressed;
     }
@@ -70,7 +70,7 @@ public class SCAutoClient {
             case ON_NO_TREASURE_WITH_BAD -> "§aON §7(No Treasure) §c(With Bad Spots)";
             case ON_WITH_TREASURE_WITH_BAD -> "§aON §e(With Treasure) §c(With Bad Spots)";
         };
-        mc.player.displayClientMessage(Component.literal("§b[SCAuto] Mode: " + message), true);
+        mc.player.sendSystemMessage(Component.literal("§b[SCAuto] Mode: " + message));
     }
 
     public static AutoState getState() {

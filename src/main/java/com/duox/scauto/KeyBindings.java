@@ -2,6 +2,7 @@ package com.duox.scauto;
 
 import com.mojang.blaze3d.platform.InputConstants;
 import net.minecraft.client.KeyMapping;
+import net.minecraft.resources.Identifier;
 import net.neoforged.api.distmarker.Dist;
 import net.neoforged.bus.api.SubscribeEvent;
 import net.neoforged.fml.common.EventBusSubscriber;
@@ -11,7 +12,7 @@ import org.lwjgl.glfw.GLFW;
 
 @EventBusSubscriber(value = Dist.CLIENT)
 public class KeyBindings {
-    public static final String KEY_CATEGORY = "key.category.autofishing";
+    public static final KeyMapping.Category KEY_CATEGORY = new KeyMapping.Category(Identifier.fromNamespaceAndPath(SCAuto.MOD_ID, "autofishing"));
 
     public static final String KEY_TOGGLE = "key.autofishing.toggle";
     public static final String KEY_THRESHOLD_UP = "key.autofishing.threshold_up";
@@ -43,6 +44,7 @@ public class KeyBindings {
 
     @SubscribeEvent
     public static void register(RegisterKeyMappingsEvent event) {
+        event.registerCategory(KEY_CATEGORY);
         event.register(toggleKey);
         event.register(thresholdUpKey);
         event.register(thresholdDownKey);
