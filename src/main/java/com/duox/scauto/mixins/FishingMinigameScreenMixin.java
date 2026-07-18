@@ -3,8 +3,6 @@ package com.duox.scauto.mixins;
 import com.duox.scauto.SCAutoClient;
 import com.wdiscute.starcatcher.minigame.ActiveSweetSpot;
 import com.wdiscute.starcatcher.minigame.FishingMinigameScreen;
-import net.minecraft.client.Minecraft;
-import net.minecraft.network.chat.Component;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.Shadow;
 import org.spongepowered.asm.mixin.Unique;
@@ -20,18 +18,13 @@ import java.util.Map;
 public abstract class FishingMinigameScreenMixin {
 
     @Shadow protected List<ActiveSweetSpot> activeSweetSpots;
-    @Shadow public float pointerPos;
-    @Shadow public float pointerSpeed;
-    @Shadow public int currentRotation;
-    @Shadow public float partial;
-    @Shadow public float hitDelay;
     @Shadow public float progress;
     @Shadow public int hp;
     @Shadow public int treasureProgress;
     @Shadow public boolean treasureActive;
-    @Shadow public int gracePeriod;
 
     @Shadow public abstract void inputPressed();
+    @Shadow public abstract float getPointerPosPrecise();
 
     @Unique private int autoTickCounter = 0;
     @Unique private final Map<ActiveSweetSpot, Integer> autoHitCooldown = new HashMap<>();
@@ -48,7 +41,7 @@ public abstract class FishingMinigameScreenMixin {
 
         if (!isAutoPlayEnabled) return;
 
-        float pointerAngle = getPointerPosPrecise();
+        float pointerAngle = this.getPointerPosPrecise();
         float threshold = SCAutoClient.getThreshold();
         float currentRatio = this.hp > 0 ? (this.progress / (float) this.hp) : 0;
 
@@ -104,13 +97,6 @@ public abstract class FishingMinigameScreenMixin {
         }
 
         autoHitCooldown.keySet().removeIf(spot -> !activeSweetSpots.contains(spot));
-    }
-
-    @Unique
-    private float getPointerPosPrecise() {
-        float precise = this.pointerPos + (this.pointerSpeed * this.partial) * this.currentRotation;
-        precise += this.hitDelay * this.pointerSpeed * this.currentRotation;
-        return precise;
     }
 
     @Unique

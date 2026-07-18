@@ -121,7 +121,11 @@ configurations {
 }
 
 dependencies {
-    implementation "curse.maven:starcatcher-1357603:8135773"
+    //old
+    //implementation "curse.maven:starcatcher-1357603:8135773"
+
+    //3.0.5
+    implementation "curse.maven:starcatcher-1357603:8431101"
 }
 
 // This block of code expands all declared replace properties in the specified resource targets.
