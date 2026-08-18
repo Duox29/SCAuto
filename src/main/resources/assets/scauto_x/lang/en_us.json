@@ -1,4 +1,6 @@
 {
   "key.category.autofishing": "Auto Fishing",
-  "key.autofishing.toggle": "Toggle Auto Mode"
+  "key.autofishing.toggle": "Toggle Auto Mode",
+  "key.autofishing.threshold_up": "Threshold Up",
+  "key.autofishing.threshold_down": "Threshold Down"
 }
