@@ -14,7 +14,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
-@Mixin(value = FishingMinigameScreen.class, remap = false)
+@Mixin(value = FishingMinigameScreen.class)
 public abstract class FishingMinigameScreenMixin {
 
     @Shadow protected List<ActiveSweetSpot> activeSweetSpots;
