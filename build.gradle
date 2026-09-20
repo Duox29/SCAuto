@@ -31,6 +31,10 @@ repositories {
     maven {
         url "https://cursemaven.com"
     }
+    maven {
+        name = "wd Maven"
+        url = "https://wdiscute.github.io"
+    }
 }
 
 base {
@@ -125,7 +129,12 @@ dependencies {
     //implementation "curse.maven:starcatcher-1357603:8135773"
 
     //3.0.5
-    implementation "curse.maven:starcatcher-1357603:8431101"
+    //implementation "curse.maven:starcatcher-1357603:8431101"
+
+    //3.1.3
+    implementation "curse.maven:starcatcher-1357603:8801257"
+    compileOnly("com.wdiscute:wdUtils:1.8-NEOFORGE-1.21.1")
+
 }
 
 // This block of code expands all declared replace properties in the specified resource targets.
