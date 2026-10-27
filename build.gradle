@@ -20,6 +20,28 @@ sourceSets {
     main.resources.srcDir 'src/main/templates'
 }
 
+def mixinModuleDir = layout.buildDirectory.dir('mixinmodule')
+
+def refmapDir = layout.buildDirectory.dir('generated/refmap')
+
+tasks.register('assembleRefmap', Copy) {
+    dependsOn 'compileJava'
+    from(file("$buildDir/tmp/compileJava/compileJava-refmap.json"))
+    rename { "${mod_id}.refmap.json" }
+    into refmapDir
+}
+
+tasks.register('prepareMixinModule', Copy) {
+    dependsOn 'processResources', 'assembleRefmap'
+    from(sourceSets.main.output.resourcesDir) {
+        include "${mod_id}.mixins.json"
+    }
+    from(refmapDir) {
+        include "${mod_id}.refmap.json"
+    }
+    into mixinModuleDir
+}
+
 minecraft {
     mappings channel: mapping_channel, version: mapping_version
 
@@ -30,10 +52,8 @@ minecraft {
             property 'forge.logging.markers', 'REGISTRIES'
             property 'forge.logging.console.level', 'debug'
 
-            mods {
-                autofish {
-                    source sourceSets.main
-                }
+            lazyToken 'minecraft_classpath', {
+                mixinModuleDir.get().asFile.absolutePath
             }
         }
     }
@@ -46,11 +66,17 @@ mixin {
 
 repositories {
     mavenCentral()
-    flatDir {
-        dirs 'libs'
+    maven {
+        name = "wd Maven"
+        url = "https://wdiscute.github.io"
     }
     maven {
         url "https://cursemaven.com"
+    }
+    maven {
+        name = "Modrinth"
+        url = "https://api.modrinth.com/maven"
+        content { includeGroup "maven.modrinth" }
     }
     maven {
         url "https://girafi.dk/maven/"
@@ -59,8 +85,21 @@ repositories {
 
 dependencies {
     minecraft "net.minecraftforge:forge:${minecraft_version}-${forge_version}"
-    implementation fg.deobf("curse.maven:starcatcher-1357603:8375004")
+    implementation fg.deobf("curse.maven:starcatcher-1357603:9204510")
+    runtimeOnly fg.deobf("maven.modrinth:wds-selling-bin:1.4.3-FORGE-1.20.1")
+    runtimeOnly fg.deobf("maven.modrinth:libtooltips:2.3.2-FORGE-1.20.1")
+    runtimeOnly fg.deobf("maven.modrinth:fancytabsections:6.2.3-FORGE-1.20.1")
     annotationProcessor 'org.spongepowered:mixin:0.8.5:processor'
+    compileOnly fg.deobf("com.wdiscute:wdUtils:1.9.3-FORGE-1.20.1")
+}
+
+tasks.configureEach { task ->
+    if (task.name == 'runClient') {
+        task.dependsOn 'prepareMixinModule'
+    }
+}
+tasks.named('jar') {
+    dependsOn 'assembleRefmap'
 }
 
 tasks.named('processResources', ProcessResources).configure {
@@ -77,6 +116,9 @@ tasks.named('processResources', ProcessResources).configure {
     }
 
     jar {
+        from(refmapDir) {
+            include "scauto_x.refmap.json"
+        }
         manifest {
             attributes([
                     "Specification-Title": mod_id,
